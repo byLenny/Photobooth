@@ -8,8 +8,9 @@ entirely through a web-based admin panel — no printing, no cloud services.
   countdown, single shot or multi-shot collage, optional filter/branding
   overlay, on-screen gallery, and a QR code / download link for guests.
 - **Admin panel** (`/admin`) — PIN-protected settings (countdown length,
-  shot mode, filters, branding overlay, gallery/QR toggles, retention) and a
-  session history browser to revisit any past session and its QR code.
+  photos per session (1–5), filters, branding overlay, gallery/QR toggles,
+  retention, camera/resolution/frame-rate selection) and a session history
+  browser to revisit any past session and its QR code.
 
 ## How camera access works
 
@@ -66,10 +67,18 @@ grant camera permission.
 2. Log in with the default PIN `1234` (set via the `ADMIN_PIN` environment
    variable in `docker-compose.yml` — change it here before going live).
 3. Immediately set a new PIN under **Admin PIN** on the settings page.
-4. Configure countdown length, shot mode (single vs. collage), filter, and
-   optionally upload a branding overlay (a transparent PNG the same
-   aspect ratio as your camera feed works best).
-5. If the booth will be reached from other devices under a LAN hostname or
+4. Configure countdown length, photos per session (1 = single photo, 2–5
+   are combined into a collage), filter, and optionally upload a branding
+   overlay (a transparent PNG the same aspect ratio as your camera feed
+   works best).
+5. Under **Camera**, click **Detect cameras** to list every camera this
+   browser can see (built-in and USB) and pick one, plus a resolution and
+   frame rate. Do this from a browser running on the booth machine itself —
+   the list reflects that machine's hardware, not whatever device you're
+   viewing `/admin` from. If the configured camera isn't found when the
+   kiosk starts (e.g. settings were saved from a different machine), it
+   automatically falls back to any available camera.
+6. If the booth will be reached from other devices under a LAN hostname or
    IP (e.g. for admins visiting `/admin` from a phone), set **Public base
    URL** so QR codes point to a reachable address instead of `localhost`.
 

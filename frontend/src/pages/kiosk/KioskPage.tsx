@@ -44,10 +44,32 @@ export default function KioskPage() {
   const openCamera = useCallback(
     async (deviceId?: string) => {
       stopStream();
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" },
-        audio: false,
-      });
+      const targetDeviceId = deviceId ?? settings?.cameraDeviceId ?? undefined;
+      const buildConstraints = (withDeviceId: boolean): MediaTrackConstraints => {
+        const c: MediaTrackConstraints = withDeviceId && targetDeviceId
+          ? { deviceId: { exact: targetDeviceId } }
+          : { facingMode: "user" };
+        if (settings?.cameraWidth) c.width = { ideal: settings.cameraWidth };
+        if (settings?.cameraHeight) c.height = { ideal: settings.cameraHeight };
+        if (settings?.cameraFrameRate) c.frameRate = { ideal: settings.cameraFrameRate };
+        return c;
+      };
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: buildConstraints(true),
+          audio: false,
+        });
+      } catch (err) {
+        if (!targetDeviceId) throw err;
+        // The configured/preferred camera isn't available on this machine — fall back to any camera.
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: buildConstraints(false),
+          audio: false,
+        });
+      }
+
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -60,7 +82,7 @@ export default function KioskPage() {
       const activeId = activeTrack?.getSettings().deviceId;
       if (activeId) setSelectedDeviceId(activeId);
     },
-    [stopStream],
+    [stopStream, settings],
   );
 
   const startSession = useCallback(async () => {
@@ -101,6 +123,10 @@ export default function KioskPage() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d")!;
+    if (settings?.mirror) {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     return new Promise((resolve, reject) => {
       canvas.toBlob(
@@ -109,7 +135,7 @@ export default function KioskPage() {
         0.92,
       );
     });
-  }, []);
+  }, [settings]);
 
   const runCountdown = useCallback(async (seconds: number) => {
     for (let s = seconds; s > 0; s--) {
@@ -124,7 +150,7 @@ export default function KioskPage() {
   const beginCapture = useCallback(async () => {
     if (!settings) return;
     cancelledRef.current = false;
-    const total = settings.shotMode === "collage" ? settings.collageShotCount : 1;
+    const total = settings.shotsPerSession;
     setShotProgress({ current: 0, total });
     setStage("countdown");
 
@@ -227,7 +253,13 @@ export default function KioskPage() {
       )}
 
       <div style={{ position: "relative" }}>
-        <video ref={videoRef} autoPlay playsInline muted />
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={settings?.mirror ? { transform: "scaleX(-1)" } : undefined}
+        />
         {stage === "countdown" && countdownValue !== null && countdownValue > 0 && (
           <div
             className="countdown-number"

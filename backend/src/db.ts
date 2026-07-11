@@ -2,7 +2,7 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import Database from "better-sqlite3";
 import { config, paths } from "./config.js";
-import { DEFAULT_SETTINGS, type FilterName, type SessionRecord, type Settings, type ShotMode } from "./types.js";
+import { DEFAULT_SETTINGS, type FilterName, type SessionRecord, type Settings } from "./types.js";
 
 fs.mkdirSync(config.dataDir, { recursive: true });
 fs.mkdirSync(paths.photosDir, { recursive: true });
@@ -20,7 +20,6 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     created_at INTEGER NOT NULL,
-    shot_mode TEXT NOT NULL,
     filter TEXT NOT NULL,
     original_files TEXT NOT NULL,
     branded_file TEXT NOT NULL
@@ -131,15 +130,14 @@ export function destroyAdminSession(token: string): void {
 // --- sessions (photo sessions) ---
 
 const insertSessionStmt = db.prepare(`
-  INSERT INTO sessions (id, created_at, shot_mode, filter, original_files, branded_file)
-  VALUES (@id, @createdAt, @shotMode, @filter, @originalFiles, @brandedFile)
+  INSERT INTO sessions (id, created_at, filter, original_files, branded_file)
+  VALUES (@id, @createdAt, @filter, @originalFiles, @brandedFile)
 `);
 
 export function insertSession(record: SessionRecord): void {
   insertSessionStmt.run({
     id: record.id,
     createdAt: record.createdAt,
-    shotMode: record.shotMode,
     filter: record.filter,
     originalFiles: JSON.stringify(record.originalFiles),
     brandedFile: record.brandedFile,
@@ -149,7 +147,6 @@ export function insertSession(record: SessionRecord): void {
 interface SessionRow {
   id: string;
   created_at: number;
-  shot_mode: string;
   filter: string;
   original_files: string;
   branded_file: string;
@@ -159,7 +156,6 @@ function rowToRecord(row: SessionRow): SessionRecord {
   return {
     id: row.id,
     createdAt: row.created_at,
-    shotMode: row.shot_mode as ShotMode,
     filter: row.filter as FilterName,
     originalFiles: JSON.parse(row.original_files) as string[],
     brandedFile: row.branded_file,

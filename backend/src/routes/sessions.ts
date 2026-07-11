@@ -63,7 +63,6 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
     const record: SessionRecord = {
       id,
       createdAt: Date.now(),
-      shotMode: settings.shotMode,
       filter: settings.filter,
       originalFiles,
       brandedFile,

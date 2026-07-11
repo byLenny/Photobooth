@@ -1,11 +1,9 @@
-export type ShotMode = "single" | "collage";
 export type CollageLayout = "grid-2x2" | "strip-vertical";
 export type FilterName = "none" | "grayscale" | "sepia" | "vintage";
 
 export interface Settings {
   countdownSeconds: number;
-  shotMode: ShotMode;
-  collageShotCount: number;
+  shotsPerSession: number;
   collageLayout: CollageLayout;
   filter: FilterName;
   overlayEnabled: boolean;
@@ -14,12 +12,17 @@ export interface Settings {
   qrEnabled: boolean;
   retentionDays: number;
   baseUrl: string;
+  cameraDeviceId: string | null;
+  cameraLabel: string | null;
+  cameraWidth: number | null;
+  cameraHeight: number | null;
+  cameraFrameRate: number | null;
+  mirror: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   countdownSeconds: 3,
-  shotMode: "single",
-  collageShotCount: 4,
+  shotsPerSession: 1,
   collageLayout: "grid-2x2",
   filter: "none",
   overlayEnabled: false,
@@ -28,12 +31,17 @@ export const DEFAULT_SETTINGS: Settings = {
   qrEnabled: true,
   retentionDays: 0,
   baseUrl: "",
+  cameraDeviceId: null,
+  cameraLabel: null,
+  cameraWidth: null,
+  cameraHeight: null,
+  cameraFrameRate: null,
+  mirror: true,
 };
 
 export interface SessionRecord {
   id: string;
   createdAt: number;
-  shotMode: ShotMode;
   filter: FilterName;
   originalFiles: string[];
   brandedFile: string;

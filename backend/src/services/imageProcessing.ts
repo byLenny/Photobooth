@@ -94,7 +94,7 @@ export async function processSession(
   overlayPath: string | null,
 ): Promise<Buffer> {
   let working: Buffer;
-  if (settings.shotMode === "collage" && originals.length > 1) {
+  if (originals.length > 1) {
     working = await buildCollage(originals, settings.collageLayout);
   } else {
     working = originals[0]!;
