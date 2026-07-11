@@ -1,6 +1,7 @@
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { adminChangePin, adminUpdateSettings, adminUploadOverlay, getSettings } from "../../api/client";
 import type { Settings } from "../../api/types";
+import { getCameraSettings, updateCameraSettings, type CameraSettings } from "../../cameraSettings";
 
 const RESOLUTION_PRESETS: { label: string; width: number | null; height: number | null }[] = [
   { label: "Auto (camera default)", width: null, height: null },
@@ -19,22 +20,53 @@ const FRAME_RATE_PRESETS: { label: string; value: number | null }[] = [
   { label: "60 fps", value: 60 },
 ];
 
+const AUTOSAVE_DEBOUNCE_MS = 700;
+
 function resolutionKey(width: number | null, height: number | null): string {
   return width && height ? `${width}x${height}` : "auto";
 }
 
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
 export default function AdminSettings() {
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [pinForm, setPinForm] = useState({ currentPin: "", newPin: "" });
   const [pinMsg, setPinMsg] = useState("");
   const [cameraDevices, setCameraDevices] = useState<MediaDeviceInfo[]>([]);
   const [cameraError, setCameraError] = useState("");
   const [detecting, setDetecting] = useState(false);
+  const [cameraSettings, setCameraSettings] = useState<CameraSettings>(() => getCameraSettings());
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipNextAutosave = useRef(true);
 
   useEffect(() => {
     getSettings().then(setSettings);
   }, []);
+
+  // Auto-saves to the datastore shortly after any field changes, instead of
+  // requiring an explicit save action.
+  useEffect(() => {
+    if (!settings) return;
+    if (skipNextAutosave.current) {
+      skipNextAutosave.current = false;
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setSaveStatus("saving");
+    debounceRef.current = setTimeout(async () => {
+      try {
+        await adminUpdateSettings(settings);
+        setSaveStatus("saved");
+      } catch {
+        setSaveStatus("error");
+      }
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [settings]);
 
   if (!settings) return <p>Loading…</p>;
 
@@ -42,20 +74,12 @@ export default function AdminSettings() {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
-  async function save(e: FormEvent) {
-    e.preventDefault();
-    if (!settings) return;
-    const updated = await adminUpdateSettings(settings);
-    setSettings(updated);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
-
   async function handleOverlayUpload(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     await adminUploadOverlay(file);
     const updated = await getSettings();
+    skipNextAutosave.current = true;
     setSettings(updated);
   }
 
@@ -89,16 +113,32 @@ export default function AdminSettings() {
     }
   }
 
+  function updateCamera(partial: Partial<CameraSettings>) {
+    setCameraSettings(updateCameraSettings(partial));
+  }
+
   function handleResolutionChange(key: string) {
     const preset = RESOLUTION_PRESETS.find((p) => resolutionKey(p.width, p.height) === key);
     if (!preset) return;
-    setSettings((prev) => (prev ? { ...prev, cameraWidth: preset.width, cameraHeight: preset.height } : prev));
+    updateCamera({ width: preset.width, height: preset.height });
   }
+
+  const saveStatusLabel: Record<SaveStatus, string> = {
+    idle: "",
+    saving: "Saving…",
+    saved: "All changes saved to the datastore",
+    error: "Couldn't save — check your connection and try again",
+  };
 
   return (
     <div>
-      <h2>Settings</h2>
-      <form onSubmit={save}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: "1rem" }}>
+        <h2>Settings</h2>
+        <span className={saveStatus === "error" ? "error-text" : undefined}>
+          {saveStatusLabel[saveStatus]}
+        </span>
+      </div>
+      <div>
         <div className="admin-field">
           <label>Countdown (seconds)</label>
           <input
@@ -208,8 +248,10 @@ export default function AdminSettings() {
         <h3>Camera</h3>
         <p>
           <small>
-            Run this section from the browser on the booth machine itself — the camera list below
-            reflects whatever this browser can see right now.
+            These preferences are saved in <em>this browser's</em> local storage, not the server —
+            they only make sense for the specific machine actually driving the webcam. Open this
+            page on the booth machine itself; a different device will show its own cameras and its
+            own saved preferences, not the booth's.
           </small>
         </p>
 
@@ -223,25 +265,17 @@ export default function AdminSettings() {
         <div className="admin-field">
           <label>Camera</label>
           <select
-            value={settings.cameraDeviceId ?? ""}
+            value={cameraSettings.deviceId ?? ""}
             onChange={(e) => {
               const device = cameraDevices.find((d) => d.deviceId === e.target.value);
-              setSettings((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      cameraDeviceId: e.target.value || null,
-                      cameraLabel: device?.label ?? prev.cameraLabel,
-                    }
-                  : prev,
-              );
+              updateCamera({ deviceId: e.target.value || null, label: device?.label ?? cameraSettings.label });
             }}
           >
             <option value="">Auto (first available camera)</option>
-            {settings.cameraDeviceId &&
-              !cameraDevices.some((d) => d.deviceId === settings.cameraDeviceId) && (
-                <option value={settings.cameraDeviceId}>
-                  {settings.cameraLabel ?? "Previously selected camera"} (not detected right now)
+            {cameraSettings.deviceId &&
+              !cameraDevices.some((d) => d.deviceId === cameraSettings.deviceId) && (
+                <option value={cameraSettings.deviceId}>
+                  {cameraSettings.label ?? "Previously selected camera"} (not detected right now)
                 </option>
               )}
             {cameraDevices.map((d) => (
@@ -255,7 +289,7 @@ export default function AdminSettings() {
         <div className="admin-field">
           <label>Resolution</label>
           <select
-            value={resolutionKey(settings.cameraWidth, settings.cameraHeight)}
+            value={resolutionKey(cameraSettings.width, cameraSettings.height)}
             onChange={(e) => handleResolutionChange(e.target.value)}
           >
             {RESOLUTION_PRESETS.map((p) => (
@@ -269,8 +303,8 @@ export default function AdminSettings() {
         <div className="admin-field">
           <label>Frame rate</label>
           <select
-            value={settings.cameraFrameRate ?? ""}
-            onChange={(e) => update("cameraFrameRate", e.target.value ? Number(e.target.value) : null)}
+            value={cameraSettings.frameRate ?? ""}
+            onChange={(e) => updateCamera({ frameRate: e.target.value ? Number(e.target.value) : null })}
           >
             {FRAME_RATE_PRESETS.map((p) => (
               <option key={p.label} value={p.value ?? ""}>
@@ -284,18 +318,13 @@ export default function AdminSettings() {
           <label>
             <input
               type="checkbox"
-              checked={settings.mirror}
-              onChange={(e) => update("mirror", e.target.checked)}
+              checked={cameraSettings.mirror}
+              onChange={(e) => updateCamera({ mirror: e.target.checked })}
             />{" "}
             Mirror preview &amp; photo (recommended for selfie-style booths)
           </label>
         </div>
-
-        <button className="big-button" type="submit">
-          Save settings
-        </button>
-        {saved && <p>Saved!</p>}
-      </form>
+      </div>
 
       <h2>Admin PIN</h2>
       <form onSubmit={handlePinChange}>

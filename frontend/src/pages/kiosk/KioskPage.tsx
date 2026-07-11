@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSession, getSettings, listSessions } from "../../api/client";
 import type { Settings, SessionDetail, SessionSummary } from "../../api/types";
+import { getCameraSettings, updateCameraSettings, type CameraSettings } from "../../cameraSettings";
 
 type Stage = "idle" | "setup" | "countdown" | "processing" | "result" | "error";
 
@@ -21,6 +22,7 @@ export default function KioskPage() {
   const [shotProgress, setShotProgress] = useState({ current: 0, total: 1 });
   const [result, setResult] = useState<SessionDetail | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const [cameraPrefs, setCameraPrefs] = useState<CameraSettings>(() => getCameraSettings());
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -44,14 +46,14 @@ export default function KioskPage() {
   const openCamera = useCallback(
     async (deviceId?: string) => {
       stopStream();
-      const targetDeviceId = deviceId ?? settings?.cameraDeviceId ?? undefined;
+      const targetDeviceId = deviceId ?? cameraPrefs.deviceId ?? undefined;
       const buildConstraints = (withDeviceId: boolean): MediaTrackConstraints => {
         const c: MediaTrackConstraints = withDeviceId && targetDeviceId
           ? { deviceId: { exact: targetDeviceId } }
           : { facingMode: "user" };
-        if (settings?.cameraWidth) c.width = { ideal: settings.cameraWidth };
-        if (settings?.cameraHeight) c.height = { ideal: settings.cameraHeight };
-        if (settings?.cameraFrameRate) c.frameRate = { ideal: settings.cameraFrameRate };
+        if (cameraPrefs.width) c.width = { ideal: cameraPrefs.width };
+        if (cameraPrefs.height) c.height = { ideal: cameraPrefs.height };
+        if (cameraPrefs.frameRate) c.frameRate = { ideal: cameraPrefs.frameRate };
         return c;
       };
 
@@ -82,7 +84,7 @@ export default function KioskPage() {
       const activeId = activeTrack?.getSettings().deviceId;
       if (activeId) setSelectedDeviceId(activeId);
     },
-    [stopStream, settings],
+    [stopStream, cameraPrefs],
   );
 
   const startSession = useCallback(async () => {
@@ -101,11 +103,13 @@ export default function KioskPage() {
       setSelectedDeviceId(deviceId);
       try {
         await openCamera(deviceId);
+        const device = devices.find((d) => d.deviceId === deviceId);
+        setCameraPrefs(updateCameraSettings({ deviceId, label: device?.label ?? null }));
       } catch {
         setErrorMsg("Could not switch to that camera.");
       }
     },
-    [openCamera],
+    [openCamera, devices],
   );
 
   const returnToIdle = useCallback(() => {
@@ -123,7 +127,7 @@ export default function KioskPage() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d")!;
-    if (settings?.mirror) {
+    if (cameraPrefs.mirror) {
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
     }
@@ -135,7 +139,7 @@ export default function KioskPage() {
         0.92,
       );
     });
-  }, [settings]);
+  }, [cameraPrefs]);
 
   const runCountdown = useCallback(async (seconds: number) => {
     for (let s = seconds; s > 0; s--) {
@@ -258,7 +262,7 @@ export default function KioskPage() {
           autoPlay
           playsInline
           muted
-          style={settings?.mirror ? { transform: "scaleX(-1)" } : undefined}
+          style={cameraPrefs.mirror ? { transform: "scaleX(-1)" } : undefined}
         />
         {stage === "countdown" && countdownValue !== null && countdownValue > 0 && (
           <div

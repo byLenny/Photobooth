@@ -9,8 +9,9 @@ entirely through a web-based admin panel — no printing, no cloud services.
   overlay, on-screen gallery, and a QR code / download link for guests.
 - **Admin panel** (`/admin`) — PIN-protected settings (countdown length,
   photos per session (1–5), filters, branding overlay, gallery/QR toggles,
-  retention, camera/resolution/frame-rate selection) and a session history
-  browser to revisit any past session and its QR code.
+  retention) that auto-save as you change them, a camera/resolution/frame-rate
+  picker, and a session history browser to revisit any past session and its
+  QR code.
 
 ## How camera access works
 
@@ -70,14 +71,19 @@ grant camera permission.
 4. Configure countdown length, photos per session (1 = single photo, 2–5
    are combined into a collage), filter, and optionally upload a branding
    overlay (a transparent PNG the same aspect ratio as your camera feed
-   works best).
+   works best). Each change saves to the server automatically — there's no
+   separate save button.
 5. Under **Camera**, click **Detect cameras** to list every camera this
-   browser can see (built-in and USB) and pick one, plus a resolution and
-   frame rate. Do this from a browser running on the booth machine itself —
-   the list reflects that machine's hardware, not whatever device you're
-   viewing `/admin` from. If the configured camera isn't found when the
-   kiosk starts (e.g. settings were saved from a different machine), it
-   automatically falls back to any available camera.
+   browser can see (built-in and USB) and pick one, plus a resolution, frame
+   rate, and mirror option. **Do this from the browser on the booth machine
+   itself** — unlike the settings above, camera preferences are saved in
+   that browser's local storage, not the server, since a deviceId is only
+   meaningful on the machine that enumerated it. Opening `/admin` from a
+   different device shows that device's own cameras and its own separately
+   saved preferences, not the booth's. The kiosk screen (`/`) picks up
+   these preferences automatically as long as it's the same browser; if the
+   configured camera isn't found when the kiosk starts, it falls back to
+   any available camera.
 6. If the booth will be reached from other devices under a LAN hostname or
    IP (e.g. for admins visiting `/admin` from a phone), set **Public base
    URL** so QR codes point to a reachable address instead of `localhost`.

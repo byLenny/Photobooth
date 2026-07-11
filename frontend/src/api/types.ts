@@ -12,12 +12,6 @@ export interface Settings {
   qrEnabled: boolean;
   retentionDays: number;
   baseUrl: string;
-  cameraDeviceId: string | null;
-  cameraLabel: string | null;
-  cameraWidth: number | null;
-  cameraHeight: number | null;
-  cameraFrameRate: number | null;
-  mirror: boolean;
 }
 
 export interface SessionSummary {
