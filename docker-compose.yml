@@ -1,0 +1,21 @@
+services:
+  photoboth:
+    build: .
+    image: photoboth:latest
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      DATA_DIR: "/data"
+      # Initial admin PIN, only used the very first time the app boots
+      # (change it from the /admin settings page afterwards).
+      ADMIN_PIN: "1234"
+      # Optional: set this if the booth is reached via a LAN hostname/IP
+      # other than localhost, so QR codes point somewhere scannable.
+      # BASE_URL: "http://photobooth.local:8080"
+    volumes:
+      - photoboth-data:/data
+    restart: unless-stopped
+
+volumes:
+  photoboth-data:

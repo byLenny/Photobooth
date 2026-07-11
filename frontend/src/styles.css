@@ -1,0 +1,167 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #0b0b0f;
+  color: #f5f5f7;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  gap: 1.5rem;
+  text-align: center;
+}
+
+.big-button {
+  background: #ff3b6b;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-size: 1.6rem;
+  font-weight: 700;
+  padding: 1.5rem 3rem;
+  min-height: 88px;
+  min-width: 260px;
+  box-shadow: 0 10px 30px rgba(255, 59, 107, 0.4);
+}
+
+.big-button:active {
+  transform: scale(0.97);
+}
+
+.secondary-button {
+  background: transparent;
+  color: #f5f5f7;
+  border: 2px solid rgba(245, 245, 247, 0.4);
+  border-radius: 999px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 0.9rem 2rem;
+  min-height: 60px;
+}
+
+video,
+.preview-frame img {
+  width: min(90vw, 900px);
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.countdown-number {
+  font-size: 12rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.gallery-strip {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  overflow-x: auto;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.5));
+}
+
+.gallery-strip img {
+  height: 90px;
+  border-radius: 10px;
+  flex: none;
+}
+
+.qr-code {
+  background: #fff;
+  padding: 0.75rem;
+  border-radius: 16px;
+}
+
+.qr-code img {
+  display: block;
+  width: 180px;
+  height: 180px;
+}
+
+.admin-shell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+  text-align: left;
+}
+
+.admin-field label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.admin-field input,
+.admin-field select {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+}
+
+.admin-nav {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-nav a {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.admin-nav a.active {
+  opacity: 1;
+  border-bottom: 2px solid #ff3b6b;
+}
+
+.session-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.session-grid img {
+  width: 100%;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.error-text {
+  color: #ff6b6b;
+  font-weight: 600;
+}
