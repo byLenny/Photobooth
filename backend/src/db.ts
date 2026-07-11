@@ -165,11 +165,16 @@ function rowToRecord(row: SessionRow): SessionRecord {
 const listSessionsStmt = db.prepare(
   "SELECT * FROM sessions ORDER BY created_at DESC LIMIT ? OFFSET ?",
 );
+const listRandomSessionsStmt = db.prepare("SELECT * FROM sessions ORDER BY RANDOM() LIMIT ?");
 const countSessionsStmt = db.prepare("SELECT COUNT(*) as count FROM sessions");
 const getSessionStmt = db.prepare("SELECT * FROM sessions WHERE id = ?");
 
 export function listSessions(limit: number, offset = 0): SessionRecord[] {
   return (listSessionsStmt.all(limit, offset) as SessionRow[]).map(rowToRecord);
+}
+
+export function listRandomSessions(limit: number): SessionRecord[] {
+  return (listRandomSessionsStmt.all(limit) as SessionRow[]).map(rowToRecord);
 }
 
 export function countSessions(): number {
