@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { adminChangePin, adminUpdateSettings, adminUploadOverlay, getSettings } from "../../api/client";
 import type { Settings } from "../../api/types";
 import { getCameraSettings, updateCameraSettings, type CameraSettings } from "../../cameraSettings";
+import { THEMES, THEME_KEYS, THEME_LABELS } from "../../theme";
 
 const RESOLUTION_PRESETS: { label: string; width: number | null; height: number | null }[] = [
   { label: "Auto (camera default)", width: null, height: null },
@@ -27,6 +28,14 @@ function resolutionKey(width: number | null, height: number | null): string {
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+function Switch({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" className={`switch ${on ? "on" : ""}`} onClick={onToggle}>
+      <span className="knob" />
+    </button>
+  );
+}
 
 export default function AdminSettings() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -140,26 +149,70 @@ export default function AdminSettings() {
       </div>
       <div>
         <div className="admin-field">
-          <label>Countdown (seconds)</label>
+          <label>Theme palette</label>
+          <div className="theme-picker">
+            {THEME_KEYS.map((key) => (
+              <button
+                type="button"
+                key={key}
+                className={`theme-swatch ${settings.theme === key ? "active" : ""}`}
+                onClick={() => update("theme", key)}
+              >
+                <span
+                  className="dot"
+                  style={{
+                    background: `linear-gradient(135deg, ${THEMES[key].pink}, ${THEMES[key].purple} 55%, ${THEMES[key].gold})`,
+                  }}
+                />
+                <span>{THEME_LABELS[key]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="admin-field">
+          <label>Event headline</label>
           <input
-            type="number"
+            type="text"
+            value={settings.eventHeadline}
+            onChange={(e) => update("eventHeadline", e.target.value)}
+          />
+        </div>
+
+        <div className="admin-field">
+          <label>Event subheading</label>
+          <input
+            type="text"
+            value={settings.eventSubheading}
+            onChange={(e) => update("eventSubheading", e.target.value)}
+          />
+        </div>
+
+        <div className="admin-field">
+          <label>
+            Countdown (seconds): <span className="admin-slider-val">{settings.countdownSeconds}s</span>
+          </label>
+          <input
+            type="range"
             min={1}
             max={10}
+            step={1}
             value={settings.countdownSeconds}
             onChange={(e) => update("countdownSeconds", Number(e.target.value))}
           />
         </div>
 
         <div className="admin-field">
-          <label>Photos per session</label>
+          <label>
+            Photos per session: <span className="admin-slider-val">{settings.shotsPerSession}</span>
+          </label>
           <input
-            type="number"
+            type="range"
             min={1}
             max={5}
+            step={1}
             value={settings.shotsPerSession}
-            onChange={(e) =>
-              update("shotsPerSession", Math.min(5, Math.max(1, Number(e.target.value))))
-            }
+            onChange={(e) => update("shotsPerSession", Number(e.target.value))}
           />
           <small>1 = a single photo. 2–5 are combined into a collage.</small>
         </div>
@@ -203,26 +256,42 @@ export default function AdminSettings() {
           {settings.overlayFile && <small>Current: {settings.overlayFile}</small>}
         </div>
 
-        <div className="admin-field">
-          <label>
-            <input
-              type="checkbox"
-              checked={settings.galleryEnabled}
-              onChange={(e) => update("galleryEnabled", e.target.checked)}
-            />{" "}
-            Show on-screen gallery
-          </label>
+        <div className="admin-row">
+          <label>Show on-screen gallery</label>
+          <Switch on={settings.galleryEnabled} onToggle={() => update("galleryEnabled", !settings.galleryEnabled)} />
+        </div>
+
+        <div className="admin-row">
+          <label>Make gallery slidable</label>
+          <Switch
+            on={settings.gallerySlidable}
+            onToggle={() => update("gallerySlidable", !settings.gallerySlidable)}
+          />
+        </div>
+
+        <div className="admin-row">
+          <label>Make photos openable</label>
+          <Switch
+            on={settings.galleryOpenable}
+            onToggle={() => update("galleryOpenable", !settings.galleryOpenable)}
+          />
         </div>
 
         <div className="admin-field">
-          <label>
-            <input
-              type="checkbox"
-              checked={settings.qrEnabled}
-              onChange={(e) => update("qrEnabled", e.target.checked)}
-            />{" "}
-            Show QR code after capture
-          </label>
+          <label>Gallery shows</label>
+          <select
+            value={settings.galleryImageSource}
+            onChange={(e) => update("galleryImageSource", e.target.value as Settings["galleryImageSource"])}
+          >
+            <option value="recent">Most recent photos</option>
+            <option value="random">Random photos</option>
+            <option value="all">Everyone's photos</option>
+          </select>
+        </div>
+
+        <div className="admin-row">
+          <label>Show QR code after capture</label>
+          <Switch on={settings.qrEnabled} onToggle={() => update("qrEnabled", !settings.qrEnabled)} />
         </div>
 
         <div className="admin-field">

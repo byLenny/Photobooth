@@ -2,7 +2,14 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
-import { getSettings, insertSession, listSessions, countSessions, getSession } from "../db.js";
+import {
+  getSettings,
+  insertSession,
+  listSessions,
+  listRandomSessions,
+  countSessions,
+  getSession,
+} from "../db.js";
 import { requireAdmin } from "../plugins/auth.js";
 import { processSession } from "../services/imageProcessing.js";
 import { paths } from "../config.js";
@@ -76,7 +83,9 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
     const settings = getSettings();
     if (!settings.galleryEnabled) return [];
     const limit = Math.min(Number(request.query.limit ?? 20) || 20, 100);
-    return listSessions(limit).map(toSummary);
+    const records =
+      settings.galleryImageSource === "random" ? listRandomSessions(limit) : listSessions(limit);
+    return records.map(toSummary);
   });
 
   app.get<{ Querystring: { limit?: string; offset?: string } }>(

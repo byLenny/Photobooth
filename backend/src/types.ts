@@ -1,5 +1,7 @@
 export type CollageLayout = "grid-2x2" | "strip-vertical";
 export type FilterName = "none" | "grayscale" | "sepia" | "vintage";
+export type ThemeKey = "party" | "citrus" | "berry" | "ocean" | "candy";
+export type GalleryImageSource = "recent" | "random" | "all";
 
 export interface Settings {
   countdownSeconds: number;
@@ -12,6 +14,12 @@ export interface Settings {
   qrEnabled: boolean;
   retentionDays: number;
   baseUrl: string;
+  theme: ThemeKey;
+  gallerySlidable: boolean;
+  galleryOpenable: boolean;
+  galleryImageSource: GalleryImageSource;
+  eventHeadline: string;
+  eventSubheading: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -25,6 +33,12 @@ export const DEFAULT_SETTINGS: Settings = {
   qrEnabled: true,
   retentionDays: 0,
   baseUrl: "",
+  theme: "party",
+  gallerySlidable: true,
+  galleryOpenable: true,
+  galleryImageSource: "recent",
+  eventHeadline: "Smile, it's party time! 🎉",
+  eventSubheading: "Press Start to commemorate the occasion with a photo!",
 };
 
 export interface SessionRecord {
