@@ -22,18 +22,22 @@ ENV NODE_ENV=production \
     PORT=8080 \
     HOST=0.0.0.0
 WORKDIR /app
-RUN useradd --create-home photoboth
+RUN apt-get update && apt-get install -y --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home photoboth
 
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/backend/package.json ./backend/package.json
 COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/backend/public ./backend/public
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 RUN mkdir -p /data && chown -R photoboth:photoboth /data /app
 
 VOLUME ["/data"]
 EXPOSE 8080
 WORKDIR /app/backend
-USER photoboth
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "dist/index.js"]
