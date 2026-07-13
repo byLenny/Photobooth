@@ -1,6 +1,7 @@
 node_modules/
 dist/
 build/
+backend/public/
 *.log
 .env
 .env.local
