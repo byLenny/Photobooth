@@ -25,8 +25,54 @@ running on **the same physical machine the webcam is plugged into**, opened
 at `http://localhost:<port>` (browsers treat `localhost` as a secure
 context, so camera permission works with plain HTTP). If you want the kiosk
 display to be a *different* device than the Docker host, you'll need to
-serve the app over HTTPS (e.g. a reverse proxy with a self-signed
-certificate) — not set up out of the box.
+serve the app over HTTPS — see "Enabling HTTPS" below.
+
+## Enabling HTTPS (for a kiosk on a different device)
+
+Only needed if the browser will open the app from something other than
+`localhost`/`127.0.0.1` (e.g. a LAN IP or hostname) — browsers block camera
+access outside of a secure context. The backend can terminate TLS itself if
+you give it a certificate and key.
+
+The easiest way to get a certificate your browser trusts (no "unsafe site"
+warning, which would otherwise block the camera permission prompt) is
+[mkcert](https://github.com/FiloSottile/mkcert):
+
+```bash
+# Install mkcert (macOS: brew install mkcert; see its README for other OSes),
+# then install its local CA into your system/browser trust store once:
+mkcert -install
+
+# Generate a cert for however the kiosk browser will address the booth —
+# hostname, LAN IP, or both:
+mkdir -p certs
+mkcert -cert-file certs/cert.pem -key-file certs/key.pem photobooth.local 192.168.1.50
+```
+
+Then point the container at the cert and key, either via `docker-compose.yml`
+(uncomment the `TLS_CERT_FILE`/`TLS_KEY_FILE` environment variables and the
+`./certs:/certs:ro` volume mount) or directly:
+
+```bash
+docker run -p 8443:8443 \
+  -e PORT=8443 -e TLS_CERT_FILE=/certs/cert.pem -e TLS_KEY_FILE=/certs/key.pem \
+  -v ./certs:/certs:ro -v photoboth-data:/data \
+  photoboth:latest
+```
+
+Then open `https://photobooth.local:8443` (or whichever host/port you used)
+on the kiosk machine.
+
+If you don't want to install mkcert's CA everywhere, a plain OpenSSL
+self-signed cert works too — the browser will show an "unsafe site"
+warning once, which you click through, and the camera permission prompt
+works normally after that:
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
+  -keyout certs/key.pem -out certs/cert.pem \
+  -subj "/CN=photobooth.local"
+```
 
 ## Quick start
 

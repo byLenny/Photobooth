@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
-import Fastify from "fastify";
+import Fastify, { FastifyInstance } from "fastify";
 import fastifyCookie from "@fastify/cookie";
 import fastifyMultipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
@@ -12,8 +12,22 @@ import { photoRoutes } from "./routes/photos.js";
 
 const FRONTEND_DIST = path.resolve(process.cwd(), "public");
 
+function loadTlsOptions() {
+  if (!config.tlsCertFile && !config.tlsKeyFile) return undefined;
+  if (!config.tlsCertFile || !config.tlsKeyFile) {
+    throw new Error("TLS_CERT_FILE and TLS_KEY_FILE must both be set to enable HTTPS");
+  }
+  return {
+    cert: fs.readFileSync(config.tlsCertFile),
+    key: fs.readFileSync(config.tlsKeyFile),
+  };
+}
+
 export async function buildApp() {
-  const app = Fastify({ logger: true });
+  const tls = loadTlsOptions();
+  const app: FastifyInstance = tls
+    ? (Fastify({ logger: true, https: tls }) as unknown as FastifyInstance)
+    : Fastify({ logger: true });
 
   await app.register(fastifyCookie, { secret: config.cookieSecret });
   await app.register(fastifyMultipart, {

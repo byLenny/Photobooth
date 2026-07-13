@@ -13,8 +13,15 @@ services:
       # Optional: set this if the booth is reached via a LAN hostname/IP
       # other than localhost, so QR codes point somewhere scannable.
       # BASE_URL: "http://photobooth.local:8080"
+      # Optional: serve HTTPS instead of HTTP. Required if the kiosk browser
+      # will open the app from anything other than localhost/127.0.0.1 —
+      # browsers only allow camera access (getUserMedia) from a secure
+      # context. See README.md "Enabling HTTPS" for how to generate a cert.
+      # TLS_CERT_FILE: "/certs/cert.pem"
+      # TLS_KEY_FILE: "/certs/key.pem"
     volumes:
       - photoboth-data:/data
+      # - ./certs:/certs:ro
     restart: unless-stopped
 
 volumes:
