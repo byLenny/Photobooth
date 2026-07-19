@@ -49,8 +49,18 @@ mkdir -p certs
 mkcert -cert-file certs/cert.pem -key-file certs/key.pem photobooth.local 192.168.1.50
 ```
 
-Then point the container at the cert and key, either via `docker-compose.yml`
-(uncomment the `TLS_CERT_FILE`/`TLS_KEY_FILE` environment variables and the
+> **Host path vs. container path:** `certs/cert.pem` above is where the file
+> lands on your machine. `TLS_CERT_FILE`/`TLS_KEY_FILE` are read *inside the
+> container*, where the working directory is `/app/backend`, not your repo
+> checkout — so they must be set to the **absolute path where the volume is
+> mounted**, i.e. `/certs/cert.pem`/`/certs/key.pem`, matching the
+> `./certs:/certs:ro` mount below. Reusing the relative `certs/cert.pem`
+> host path for these variables causes
+> `ENOENT: no such file or directory, open './certs/cert.pem'`.
+
+Then point the container at the cert and key, either via your
+`docker-compose.yml` (copied from `docker-compose-template.yml` — uncomment
+the `TLS_CERT_FILE`/`TLS_KEY_FILE` environment variables and the
 `./certs:/certs:ro` volume mount) or directly:
 
 ```bash
@@ -66,20 +76,88 @@ on the kiosk machine.
 If you don't want to install mkcert's CA everywhere, a plain OpenSSL
 self-signed cert works too — the browser will show an "unsafe site"
 warning once, which you click through, and the camera permission prompt
-works normally after that:
+works normally after that. See "Self-signed cert on Ubuntu" below for a
+full walkthrough.
+
+### Self-signed cert on Ubuntu
+
+OpenSSL is preinstalled on Ubuntu. Modern browsers ignore the certificate's
+`CN` and require a `subjectAltName` (SAN) instead, so generate the cert
+with a config file that lists every hostname/IP the kiosk browser will use
+to reach the booth:
 
 ```bash
+mkdir -p certs
+cat > certs/san.cnf <<'EOF'
+[req]
+distinguished_name = req_distinguished_name
+x509_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+CN = photobooth.local
+
+[v3_req]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = photobooth.local
+IP.1 = 192.168.1.50
+EOF
+
 openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
   -keyout certs/key.pem -out certs/cert.pem \
-  -subj "/CN=photobooth.local"
+  -config certs/san.cnf -extensions v3_req
 ```
+
+Replace `photobooth.local` and `192.168.1.50` with however the kiosk
+browser will actually address the machine (LAN hostname, IP, or both —
+keep only the `DNS.n`/`IP.n` lines you need).
+
+Copy the template if you haven't already (`cp docker-compose-template.yml
+docker-compose.yml` — your `docker-compose.yml` is gitignored, so it's safe
+to edit freely), then uncomment the `TLS_CERT_FILE`/`TLS_KEY_FILE`
+environment variables, the `PORT: "8443"` change, and the `./certs:/certs:ro`
+volume mount (or set them directly, see the `docker run` example above),
+and expose the port:
+
+```yaml
+ports:
+  - "8443:8443"
+environment:
+  PORT: "8443"
+  TLS_CERT_FILE: "/certs/cert.pem"
+  TLS_KEY_FILE: "/certs/key.pem"
+volumes:
+  - photoboth-data:/data
+  - ./certs:/certs:ro
+```
+
+If Ubuntu's firewall is enabled, allow the port:
+
+```bash
+sudo ufw allow 8443/tcp
+```
+
+Restart the stack (`docker compose up --build -d`), then open
+`https://photobooth.local:8443` (or whichever host/port you used) on the
+kiosk machine. Chrome/Firefox on Ubuntu will show a privacy warning
+("Your connection is not private" / "Warning: Potential Security Risk")
+the first time — click **Advanced → Proceed** (Chrome) or **Advanced →
+Accept the Risk and Continue** (Firefox) once, and the camera permission
+prompt will work normally after that, since the browser now treats the
+page as a secure context.
 
 ## Quick start
 
 Requires Docker with Compose v2 (Docker Desktop on macOS/Windows, or
 Docker Engine + the `docker compose` plugin on Linux).
 
+Copy the compose template once (the resulting `docker-compose.yml` is
+gitignored, so it's yours to customize — e.g. `ADMIN_PIN`, `BASE_URL`, TLS):
+
 ```bash
+cp docker-compose-template.yml docker-compose.yml
 docker compose up --build
 ```
 
