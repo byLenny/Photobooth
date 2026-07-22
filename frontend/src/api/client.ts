@@ -1,4 +1,4 @@
-import type { Settings, SessionSummary, SessionDetail } from "./types";
+import type { AdminSettings, CameraStatus, Settings, SessionSummary, SessionDetail } from "./types";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { credentials: "include", ...init });
@@ -39,12 +39,20 @@ export function adminMe(): Promise<{ ok: true }> {
   return request("/api/admin/me");
 }
 
-export function adminUpdateSettings(partial: Partial<Settings>): Promise<Settings> {
-  return request<Settings>("/api/admin/settings", {
+export function adminGetSettings(): Promise<AdminSettings> {
+  return request<AdminSettings>("/api/admin/settings");
+}
+
+export function adminUpdateSettings(partial: Partial<AdminSettings>): Promise<AdminSettings> {
+  return request<AdminSettings>("/api/admin/settings", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(partial),
   });
+}
+
+export function adminGetCameraStatus(): Promise<CameraStatus> {
+  return request<CameraStatus>("/api/admin/camera/status");
 }
 
 export function adminChangePin(currentPin: string, newPin: string): Promise<{ ok: true }> {

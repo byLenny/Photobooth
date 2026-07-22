@@ -22,7 +22,7 @@ ENV NODE_ENV=production \
     PORT=8080 \
     HOST=0.0.0.0
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends gosu \
+RUN apt-get update && apt-get install -y --no-install-recommends gosu ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home photoboth
 

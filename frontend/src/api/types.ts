@@ -2,6 +2,7 @@ export type CollageLayout = "grid-2x2" | "strip-vertical";
 export type FilterName = "none" | "grayscale" | "sepia" | "vintage";
 export type ThemeKey = "party" | "citrus" | "berry" | "ocean" | "candy";
 export type GalleryImageSource = "recent" | "random" | "all";
+export type CameraSourceType = "webcam" | "rtsp";
 
 export interface Settings {
   countdownSeconds: number;
@@ -20,6 +21,19 @@ export interface Settings {
   galleryImageSource: GalleryImageSource;
   eventHeadline: string;
   eventSubheading: string;
+  cameraSourceType: CameraSourceType;
+}
+
+// Only obtainable via the admin-authenticated settings endpoint — includes
+// rtspUrl, which the public /api/settings response omits since it can embed
+// stream credentials.
+export interface AdminSettings extends Settings {
+  rtspUrl: string | null;
+}
+
+export interface CameraStatus {
+  state: "idle" | "connecting" | "streaming" | "error";
+  error?: string;
 }
 
 export interface SessionSummary {
