@@ -1,6 +1,12 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
-import { adminChangePin, adminUpdateSettings, adminUploadOverlay, getSettings } from "../../api/client";
-import type { Settings } from "../../api/types";
+import {
+  adminChangePin,
+  adminGetCameraStatus,
+  adminGetSettings,
+  adminUpdateSettings,
+  adminUploadOverlay,
+} from "../../api/client";
+import type { AdminSettings as AdminSettingsData, CameraStatus, Settings } from "../../api/types";
 import { getCameraSettings, updateCameraSettings, type CameraSettings } from "../../cameraSettings";
 import { THEMES, THEME_KEYS, THEME_LABELS } from "../../theme";
 
@@ -38,7 +44,7 @@ function Switch({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 }
 
 export default function AdminSettings() {
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [settings, setSettings] = useState<AdminSettingsData | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [pinForm, setPinForm] = useState({ currentPin: "", newPin: "" });
   const [pinMsg, setPinMsg] = useState("");
@@ -46,12 +52,15 @@ export default function AdminSettings() {
   const [cameraError, setCameraError] = useState("");
   const [detecting, setDetecting] = useState(false);
   const [cameraSettings, setCameraSettings] = useState<CameraSettings>(() => getCameraSettings());
+  const [showRtspUrl, setShowRtspUrl] = useState(false);
+  const [rtspStatus, setRtspStatus] = useState<CameraStatus | null>(null);
+  const [testingRtsp, setTestingRtsp] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextAutosave = useRef(true);
 
   useEffect(() => {
-    getSettings().then(setSettings);
+    adminGetSettings().then(setSettings);
   }, []);
 
   // Auto-saves to the datastore shortly after any field changes, instead of
@@ -80,15 +89,28 @@ export default function AdminSettings() {
 
   if (!settings) return <p>Loading…</p>;
 
-  function update<K extends keyof Settings>(key: K, value: Settings[K]) {
+  function update<K extends keyof AdminSettingsData>(key: K, value: AdminSettingsData[K]) {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
+  }
+
+  async function testRtspConnection() {
+    setTestingRtsp(true);
+    setRtspStatus(null);
+    try {
+      setRtspStatus(await adminGetCameraStatus());
+    } catch (err) {
+      console.error("Failed to test RTSP connection", err);
+      setRtspStatus({ state: "error", error: "Could not reach the server to test the connection" });
+    } finally {
+      setTestingRtsp(false);
+    }
   }
 
   async function handleOverlayUpload(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     await adminUploadOverlay(file);
-    const updated = await getSettings();
+    const updated = await adminGetSettings();
     skipNextAutosave.current = true;
     setSettings(updated);
   }
@@ -318,84 +340,141 @@ export default function AdminSettings() {
         </div>
 
         <h3>Camera</h3>
-        <p>
-          <small>
-            These preferences are saved in <em>this browser's</em> local storage, not the server —
-            they only make sense for the specific machine actually driving the webcam. Open this
-            page on the booth machine itself; a different device will show its own cameras and its
-            own saved preferences, not the booth's.
-          </small>
-        </p>
 
         <div className="admin-field">
-          <button type="button" className="secondary-button" onClick={detectCameras} disabled={detecting}>
-            {detecting ? "Detecting…" : "Detect cameras"}
-          </button>
-          {cameraError && <p className="error-text">{cameraError}</p>}
+          <label>Camera source</label>
+          <select
+            value={settings.cameraSourceType}
+            onChange={(e) => update("cameraSourceType", e.target.value as Settings["cameraSourceType"])}
+          >
+            <option value="webcam">Webcam (browser camera)</option>
+            <option value="rtsp">RTSP stream (network camera)</option>
+          </select>
         </div>
 
-        <div className="admin-field">
-          <label>Camera</label>
-          <select
-            value={cameraSettings.deviceId ?? ""}
-            onChange={(e) => {
-              const device = cameraDevices.find((d) => d.deviceId === e.target.value);
-              updateCamera({ deviceId: e.target.value || null, label: device?.label ?? cameraSettings.label });
-            }}
-          >
-            <option value="">Auto (first available camera)</option>
-            {cameraSettings.deviceId &&
-              !cameraDevices.some((d) => d.deviceId === cameraSettings.deviceId) && (
-                <option value={cameraSettings.deviceId}>
-                  {cameraSettings.label ?? "Previously selected camera"} (not detected right now)
-                </option>
+        {settings.cameraSourceType === "rtsp" ? (
+          <>
+            <div className="admin-field">
+              <label>RTSP URL</label>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <input
+                  type={showRtspUrl ? "text" : "password"}
+                  placeholder="rtsp://user:pass@192.168.1.50:554/stream"
+                  value={settings.rtspUrl ?? ""}
+                  onChange={(e) => update("rtspUrl", e.target.value || null)}
+                  style={{ flex: 1 }}
+                />
+                <button type="button" className="secondary-button" onClick={() => setShowRtspUrl((v) => !v)}>
+                  {showRtspUrl ? "Hide" : "Show"}
+                </button>
+              </div>
+              <small>
+                The stream is decoded server-side and shown to guests as a live preview — the kiosk
+                and admin browsers never see this URL or any credentials in it.
+              </small>
+            </div>
+
+            <div className="admin-field">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={testRtspConnection}
+                disabled={testingRtsp || !settings.rtspUrl}
+              >
+                {testingRtsp ? "Testing…" : "Test connection"}
+              </button>
+              {rtspStatus && (
+                <p className={rtspStatus.state === "error" ? "error-text" : undefined}>
+                  {rtspStatus.state === "streaming" && "Connected — the stream is live."}
+                  {rtspStatus.state === "connecting" && "Still connecting…"}
+                  {rtspStatus.state === "idle" && "Not connected yet."}
+                  {rtspStatus.state === "error" && `Could not connect: ${rtspStatus.error ?? "unknown error"}`}
+                </p>
               )}
-            {cameraDevices.map((d) => (
-              <option key={d.deviceId} value={d.deviceId}>
-                {d.label || "Camera"}
-              </option>
-            ))}
-          </select>
-        </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <p>
+              <small>
+                These preferences are saved in <em>this browser's</em> local storage, not the server —
+                they only make sense for the specific machine actually driving the webcam. Open this
+                page on the booth machine itself; a different device will show its own cameras and its
+                own saved preferences, not the booth's.
+              </small>
+            </p>
 
-        <div className="admin-field">
-          <label>Resolution</label>
-          <select
-            value={resolutionKey(cameraSettings.width, cameraSettings.height)}
-            onChange={(e) => handleResolutionChange(e.target.value)}
-          >
-            {RESOLUTION_PRESETS.map((p) => (
-              <option key={resolutionKey(p.width, p.height)} value={resolutionKey(p.width, p.height)}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div className="admin-field">
+              <button type="button" className="secondary-button" onClick={detectCameras} disabled={detecting}>
+                {detecting ? "Detecting…" : "Detect cameras"}
+              </button>
+              {cameraError && <p className="error-text">{cameraError}</p>}
+            </div>
 
-        <div className="admin-field">
-          <label>Frame rate</label>
-          <select
-            value={cameraSettings.frameRate ?? ""}
-            onChange={(e) => updateCamera({ frameRate: e.target.value ? Number(e.target.value) : null })}
-          >
-            {FRAME_RATE_PRESETS.map((p) => (
-              <option key={p.label} value={p.value ?? ""}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div className="admin-field">
+              <label>Camera</label>
+              <select
+                value={cameraSettings.deviceId ?? ""}
+                onChange={(e) => {
+                  const device = cameraDevices.find((d) => d.deviceId === e.target.value);
+                  updateCamera({ deviceId: e.target.value || null, label: device?.label ?? cameraSettings.label });
+                }}
+              >
+                <option value="">Auto (first available camera)</option>
+                {cameraSettings.deviceId &&
+                  !cameraDevices.some((d) => d.deviceId === cameraSettings.deviceId) && (
+                    <option value={cameraSettings.deviceId}>
+                      {cameraSettings.label ?? "Previously selected camera"} (not detected right now)
+                    </option>
+                  )}
+                {cameraDevices.map((d) => (
+                  <option key={d.deviceId} value={d.deviceId}>
+                    {d.label || "Camera"}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div className="admin-field">
-          <label>
-            <input
-              type="checkbox"
-              checked={cameraSettings.mirror}
-              onChange={(e) => updateCamera({ mirror: e.target.checked })}
-            />{" "}
-            Mirror preview &amp; photo (recommended for selfie-style booths)
-          </label>
-        </div>
+            <div className="admin-field">
+              <label>Resolution</label>
+              <select
+                value={resolutionKey(cameraSettings.width, cameraSettings.height)}
+                onChange={(e) => handleResolutionChange(e.target.value)}
+              >
+                {RESOLUTION_PRESETS.map((p) => (
+                  <option key={resolutionKey(p.width, p.height)} value={resolutionKey(p.width, p.height)}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="admin-field">
+              <label>Frame rate</label>
+              <select
+                value={cameraSettings.frameRate ?? ""}
+                onChange={(e) => updateCamera({ frameRate: e.target.value ? Number(e.target.value) : null })}
+              >
+                {FRAME_RATE_PRESETS.map((p) => (
+                  <option key={p.label} value={p.value ?? ""}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="admin-field">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={cameraSettings.mirror}
+                  onChange={(e) => updateCamera({ mirror: e.target.checked })}
+                />{" "}
+                Mirror preview &amp; photo (recommended for selfie-style booths)
+              </label>
+            </div>
+          </>
+        )}
       </div>
 
       <h2>Admin PIN</h2>

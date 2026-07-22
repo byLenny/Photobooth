@@ -15,17 +15,39 @@ entirely through a web-based admin panel — no printing, no cloud services.
 
 ## How camera access works
 
-The **browser** captures photos via `getUserMedia`, not the Docker
-container — the container never touches `/dev/video*`. This is why the app
-works identically on Linux, macOS, and **Windows**, and why no `--device`
-flags or privileged containers are needed.
+Photoboth supports two camera sources, picked in **Admin → Settings →
+Camera → Camera source**:
 
-Practical implication: the browser tab showing the kiosk screen must be
-running on **the same physical machine the webcam is plugged into**, opened
-at `http://localhost:<port>` (browsers treat `localhost` as a secure
-context, so camera permission works with plain HTTP). If you want the kiosk
-display to be a *different* device than the Docker host, you'll need to
-serve the app over HTTPS — see "Enabling HTTPS" below.
+- **Webcam (default).** The **browser** captures photos via `getUserMedia`,
+  not the Docker container — the container never touches `/dev/video*`.
+  This is why the app works identically on Linux, macOS, and **Windows**,
+  and why no `--device` flags or privileged containers are needed.
+
+  Practical implication: the browser tab showing the kiosk screen must be
+  running on **the same physical machine the webcam is plugged into**,
+  opened at `http://localhost:<port>` (browsers treat `localhost` as a
+  secure context, so camera permission works with plain HTTP). If you want
+  the kiosk display to be a *different* device than the Docker host, you'll
+  need to serve the app over HTTPS — see "Enabling HTTPS" below.
+
+- **RTSP stream.** For a network/IP camera, set **Camera source** to "RTSP
+  stream" and enter its `rtsp://` URL (credentials can be embedded in the
+  URL, e.g. `rtsp://user:pass@192.168.1.50:554/stream`). Unlike the webcam
+  path, this is handled entirely by the **backend**: it shells out to
+  `ffmpeg` to decode the stream and re-serve it to browsers as an MJPEG
+  preview (`GET /api/camera/preview`) and on-demand still frames
+  (`GET /api/camera/snapshot`) for each shot. This means the kiosk browser
+  no longer needs local camera permission or to run on the camera's
+  machine — only the backend needs network access to the RTSP source. The
+  RTSP URL itself is only ever readable from the authenticated admin
+  settings endpoint, never the public one the kiosk uses, since it can
+  carry credentials. Use **Test connection** on the settings page to
+  confirm the backend can reach the stream before going live.
+
+  The Docker image already includes `ffmpeg`. Running the backend outside
+  Docker (see "Local development" below) requires `ffmpeg` to be installed
+  and on `PATH` yourself if you want to use the RTSP source — it's not
+  needed for the webcam source.
 
 ## Enabling HTTPS (for a kiosk on a different device)
 
@@ -197,17 +219,22 @@ grant camera permission.
    overlay (a transparent PNG the same aspect ratio as your camera feed
    works best). Each change saves to the server automatically — there's no
    separate save button.
-5. Under **Camera**, click **Detect cameras** to list every camera this
-   browser can see (built-in and USB) and pick one, plus a resolution, frame
-   rate, and mirror option. **Do this from the browser on the booth machine
-   itself** — unlike the settings above, camera preferences are saved in
-   that browser's local storage, not the server, since a deviceId is only
-   meaningful on the machine that enumerated it. Opening `/admin` from a
-   different device shows that device's own cameras and its own separately
-   saved preferences, not the booth's. The kiosk screen (`/`) picks up
-   these preferences automatically as long as it's the same browser; if the
-   configured camera isn't found when the kiosk starts, it falls back to
-   any available camera.
+5. Under **Camera**, pick a **Camera source**:
+   - **Webcam**: click **Detect cameras** to list every camera this browser
+     can see (built-in and USB) and pick one, plus a resolution, frame
+     rate, and mirror option. **Do this from the browser on the booth
+     machine itself** — unlike the settings above, camera preferences are
+     saved in that browser's local storage, not the server, since a
+     deviceId is only meaningful on the machine that enumerated it. Opening
+     `/admin` from a different device shows that device's own cameras and
+     its own separately saved preferences, not the booth's. The kiosk
+     screen (`/`) picks up these preferences automatically as long as it's
+     the same browser; if the configured camera isn't found when the kiosk
+     starts, it falls back to any available camera.
+   - **RTSP stream**: enter the camera's `rtsp://` URL and click **Test
+     connection**. This setting is saved server-side, so it applies to the
+     kiosk regardless of which browser/device opens it — see "How camera
+     access works" above.
 6. If the booth will be reached from other devices under a LAN hostname or
    IP (e.g. for admins visiting `/admin` from a phone), set **Public base
    URL** so QR codes point to a reachable address instead of `localhost`.
@@ -260,8 +287,8 @@ production build served directly by the backend.
 
 ## Scope / limitations
 
-- USB and integrated **webcams only** (standard browser camera APIs) — no
-  DSLR/gphoto2 support.
+- USB/integrated webcams (standard browser camera APIs) or a single RTSP
+  network camera — no DSLR/gphoto2 support.
 - No printing support.
 - Single kiosk display per instance; the admin panel can be used from any
   device on the same network.

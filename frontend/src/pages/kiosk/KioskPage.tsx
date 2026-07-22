@@ -69,6 +69,7 @@ export default function KioskPage() {
 
   const openCamera = useCallback(
     async (deviceId?: string) => {
+      if (settings?.cameraSourceType === "rtsp") return;
       stopStream();
       const targetDeviceId = deviceId ?? cameraPrefs.deviceId ?? undefined;
       const buildConstraints = (withDeviceId: boolean): MediaTrackConstraints => {
@@ -109,7 +110,7 @@ export default function KioskPage() {
       const activeId = activeTrack?.getSettings().deviceId;
       if (activeId) setSelectedDeviceId(activeId);
     },
-    [stopStream, cameraPrefs],
+    [stopStream, cameraPrefs, settings?.cameraSourceType],
   );
 
   const startSession = useCallback(async () => {
@@ -153,7 +154,13 @@ export default function KioskPage() {
     refreshGallery();
   }, [stopStream, clearShotPreviews, refreshGallery]);
 
-  const captureFrame = useCallback((): Promise<Blob> => {
+  const captureFrame = useCallback(async (): Promise<Blob> => {
+    if (settings?.cameraSourceType === "rtsp") {
+      const res = await fetch("/api/camera/snapshot", { credentials: "include" });
+      if (!res.ok) throw new Error("capture_failed");
+      return res.blob();
+    }
+
     const video = videoRef.current!;
     const canvas = canvasRef.current!;
     canvas.width = video.videoWidth;
@@ -171,7 +178,7 @@ export default function KioskPage() {
         0.92,
       );
     });
-  }, [cameraPrefs]);
+  }, [cameraPrefs, settings?.cameraSourceType]);
 
   const runCountdown = useCallback(async (seconds: number) => {
     for (let s = seconds; s > 0; s--) {
@@ -192,19 +199,26 @@ export default function KioskPage() {
     clearShotPreviews();
 
     const shots: Blob[] = [];
-    for (let i = 0; i < total; i++) {
-      setShotProgress({ current: i + 1, total });
-      await runCountdown(settings.countdownSeconds);
-      if (cancelledRef.current) return;
-      const blob = await captureFrame();
-      shots.push(blob);
-      setCountdownValue(null);
-      setFlash(true);
-      shotPreviewsRef.current = [...shotPreviewsRef.current, URL.createObjectURL(blob)];
-      setShotPreviews(shotPreviewsRef.current);
-      await sleep(FLASH_MS);
-      setFlash(false);
-      if (i < total - 1) await sleep(INTER_SHOT_PAUSE_MS - FLASH_MS);
+    try {
+      for (let i = 0; i < total; i++) {
+        setShotProgress({ current: i + 1, total });
+        await runCountdown(settings.countdownSeconds);
+        if (cancelledRef.current) return;
+        const blob = await captureFrame();
+        shots.push(blob);
+        setCountdownValue(null);
+        setFlash(true);
+        shotPreviewsRef.current = [...shotPreviewsRef.current, URL.createObjectURL(blob)];
+        setShotPreviews(shotPreviewsRef.current);
+        await sleep(FLASH_MS);
+        setFlash(false);
+        if (i < total - 1) await sleep(INTER_SHOT_PAUSE_MS - FLASH_MS);
+      }
+    } catch (err) {
+      console.error("Failed to capture a shot", err);
+      setErrorMsg("Could not capture from the camera. Check the connection and try again.");
+      setStage("error");
+      return;
     }
 
     setStage("processing");
@@ -340,7 +354,7 @@ export default function KioskPage() {
   return (
     <div className={`kiosk ${themeClass}`}>
       <div className="screen">
-        {stage === "setup" && devices.length > 1 && (
+        {stage === "setup" && settings?.cameraSourceType !== "rtsp" && devices.length > 1 && (
           <select
             className="cam-device-select"
             value={selectedDeviceId}
@@ -356,13 +370,17 @@ export default function KioskPage() {
         )}
 
         <div className="cam-wrap">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            style={cameraPrefs.mirror ? { transform: "scaleX(-1)" } : undefined}
-          />
+          {settings?.cameraSourceType === "rtsp" ? (
+            <img className="rtsp-preview" src="/api/camera/preview" alt="Live camera preview" />
+          ) : (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              style={cameraPrefs.mirror ? { transform: "scaleX(-1)" } : undefined}
+            />
+          )}
           <div className={`cam-flash ${flash ? "on" : ""}`} />
           <div className="cam-badge">
             <span className="rec-dot" />
