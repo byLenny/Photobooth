@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { NavLink, Route, Routes } from "react-router-dom";
-import { adminLogout, adminMe } from "../../api/client";
+import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { adminMe } from "../../api/client";
 import AdminLogin from "./AdminLogin";
 import AdminSettings from "./AdminSettings";
 import AdminHistory from "./AdminHistory";
@@ -8,6 +8,7 @@ import AdminHistoryDetail from "./AdminHistoryDetail";
 
 export default function AdminApp() {
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     adminMe()
@@ -25,12 +26,8 @@ export default function AdminApp() {
           Settings
         </NavLink>
         <NavLink to="/admin/history">History</NavLink>
-        <button
-          className="secondary-button"
-          style={{ marginLeft: "auto" }}
-          onClick={() => adminLogout().then(() => setAuthed(false))}
-        >
-          Log out
+        <button className="secondary-button" style={{ marginLeft: "auto" }} onClick={() => navigate("/")}>
+          Close
         </button>
       </div>
       <Routes>

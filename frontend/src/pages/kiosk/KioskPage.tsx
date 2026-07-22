@@ -90,6 +90,7 @@ export default function KioskPage() {
       } catch (err) {
         if (!targetDeviceId) throw err;
         // The configured/preferred camera isn't available on this machine — fall back to any camera.
+        console.warn("Preferred camera unavailable, falling back to default camera", err);
         stream = await navigator.mediaDevices.getUserMedia({
           video: buildConstraints(false),
           audio: false,
@@ -117,6 +118,7 @@ export default function KioskPage() {
     try {
       await openCamera(selectedDeviceId || undefined);
     } catch (err) {
+      console.error("Failed to start camera session", err);
       setErrorMsg("Could not access a camera. Check permissions and connections.");
       setStage("error");
     }
@@ -129,7 +131,8 @@ export default function KioskPage() {
         await openCamera(deviceId);
         const device = devices.find((d) => d.deviceId === deviceId);
         setCameraPrefs(updateCameraSettings({ deviceId, label: device?.label ?? null }));
-      } catch {
+      } catch (err) {
+        console.error("Failed to switch camera", err);
         setErrorMsg("Could not switch to that camera.");
       }
     },
@@ -211,7 +214,8 @@ export default function KioskPage() {
       setResult(session);
       setResultHeadline(RESULT_PHRASES[Math.floor(Math.random() * RESULT_PHRASES.length)]);
       setStage("result");
-    } catch {
+    } catch (err) {
+      console.error("Failed to create session", err);
       setErrorMsg("Something went wrong saving your photo. Please try again.");
       setStage("error");
     }
@@ -262,14 +266,16 @@ export default function KioskPage() {
           </button>
           {settings?.galleryEnabled && gallery.length > 0 && (
             <div className={galleryStripClass}>
-              {gallery.map((s) => (
-                <img
-                  key={s.id}
-                  src={s.brandedUrl}
-                  alt="Past shot"
-                  onClick={settings.galleryOpenable ? () => openFullscreen(s.brandedUrl) : undefined}
-                />
-              ))}
+              {gallery.flatMap((s) =>
+                s.originalUrls.map((url, i) => (
+                  <img
+                    key={`${s.id}-${i}`}
+                    src={url}
+                    alt="Past shot"
+                    onClick={settings.galleryOpenable ? () => openFullscreen(url) : undefined}
+                  />
+                )),
+              )}
             </div>
           )}
         </div>
@@ -299,13 +305,9 @@ export default function KioskPage() {
           <h1 className="headline">{resultHeadline}</h1>
           <div className="result-grid">
             {result.originalUrls.map((url, i) => (
-              <img
-                key={url}
-                className="result-thumb"
-                src={url}
-                alt={`Photo ${i + 1}`}
-                onClick={() => openFullscreen(url)}
-              />
+              <div key={url} className="result-thumb-wrap" onClick={() => openFullscreen(url)}>
+                <img className="result-thumb" src={url} alt={`Photo ${i + 1}`} />
+              </div>
             ))}
           </div>
           {settings?.qrEnabled && (

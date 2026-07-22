@@ -11,7 +11,8 @@ export default function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
     try {
       await adminLogin(pin);
       onSuccess();
-    } catch {
+    } catch (err) {
+      console.error("Admin login failed", err);
       setError("Incorrect PIN");
     }
   }

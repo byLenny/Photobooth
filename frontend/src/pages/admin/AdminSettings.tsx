@@ -68,7 +68,8 @@ export default function AdminSettings() {
       try {
         await adminUpdateSettings(settings);
         setSaveStatus("saved");
-      } catch {
+      } catch (err) {
+        console.error("Failed to save settings", err);
         setSaveStatus("error");
       }
     }, AUTOSAVE_DEBOUNCE_MS);
@@ -99,7 +100,8 @@ export default function AdminSettings() {
       await adminChangePin(pinForm.currentPin, pinForm.newPin);
       setPinMsg("PIN updated");
       setPinForm({ currentPin: "", newPin: "" });
-    } catch {
+    } catch (err) {
+      console.error("Failed to update PIN", err);
       setPinMsg("Could not update PIN — check the current PIN");
     }
   }
@@ -113,7 +115,8 @@ export default function AdminSettings() {
       probeStream.getTracks().forEach((t) => t.stop());
       const list = await navigator.mediaDevices.enumerateDevices();
       setCameraDevices(list.filter((d) => d.kind === "videoinput"));
-    } catch {
+    } catch (err) {
+      console.error("Failed to detect cameras", err);
       setCameraError(
         "Could not access a camera from this browser/device to detect cameras. Run this from the machine the booth's webcam is connected to.",
       );
