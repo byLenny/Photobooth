@@ -53,10 +53,10 @@ export interface SessionSummary {
   id: string;
   createdAt: number;
   brandedUrl: string;
+  originalUrls: string[];
   shareUrl: string;
 }
 
 export interface SessionDetail extends SessionSummary {
-  originalUrls: string[];
   qrCodeUrl: string;
 }

@@ -20,6 +20,7 @@ function toSummary(record: SessionRecord): SessionSummary {
     id: record.id,
     createdAt: record.createdAt,
     brandedUrl: `/files/${record.id}/${record.brandedFile}`,
+    originalUrls: record.originalFiles.map((f) => `/files/${record.id}/${f}`),
     shareUrl: `/p/${record.id}`,
   };
 }
@@ -27,7 +28,6 @@ function toSummary(record: SessionRecord): SessionSummary {
 function toDetail(record: SessionRecord): SessionDetail {
   return {
     ...toSummary(record),
-    originalUrls: record.originalFiles.map((f) => `/files/${record.id}/${f}`),
     qrCodeUrl: `/api/photos/${record.id}/qrcode.png`,
   };
 }
