@@ -35,10 +35,14 @@ function toDetail(record: SessionRecord): SessionDetail {
 export async function sessionRoutes(app: FastifyInstance): Promise<void> {
   app.post("/api/sessions", async (request, reply) => {
     const originals: Buffer[] = [];
+    let email: string | null = null;
     const parts = request.parts();
     for await (const part of parts) {
       if (part.type === "file" && part.fieldname === "photo") {
         originals.push(await part.toBuffer());
+      } else if (part.type === "field" && part.fieldname === "email") {
+        const value = String(part.value).trim();
+        if (value) email = value;
       }
     }
 
@@ -66,6 +70,9 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
     }
     const brandedFile = "branded.jpg";
     await fs.writeFile(path.join(sessionDir, brandedFile), branded);
+    if (email) {
+      await fs.writeFile(path.join(sessionDir, "email.txt"), email);
+    }
 
     const record: SessionRecord = {
       id,
