@@ -2,6 +2,7 @@ export type CollageLayout = "grid-2x2" | "strip-vertical";
 export type FilterName = "none" | "grayscale" | "sepia" | "vintage";
 export type ThemeKey = "party" | "citrus" | "berry" | "ocean" | "candy";
 export type GalleryImageSource = "recent" | "random" | "all";
+export type CameraSourceType = "webcam" | "rtsp";
 
 export interface Settings {
   countdownSeconds: number;
@@ -20,6 +21,8 @@ export interface Settings {
   galleryImageSource: GalleryImageSource;
   eventHeadline: string;
   eventSubheading: string;
+  cameraSourceType: CameraSourceType;
+  rtspUrl: string | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -39,7 +42,14 @@ export const DEFAULT_SETTINGS: Settings = {
   galleryImageSource: "recent",
   eventHeadline: "Smile, it's party time! 🎉",
   eventSubheading: "Press Start to commemorate the occasion with a photo!",
+  cameraSourceType: "webcam",
+  rtspUrl: null,
 };
+
+/** Fields omitted from the public, unauthenticated GET /api/settings response. */
+export const ADMIN_ONLY_SETTINGS_KEYS = ["rtspUrl"] as const satisfies readonly (keyof Settings)[];
+
+export type PublicSettings = Omit<Settings, (typeof ADMIN_ONLY_SETTINGS_KEYS)[number]>;
 
 export interface SessionRecord {
   id: string;
@@ -53,10 +63,10 @@ export interface SessionSummary {
   id: string;
   createdAt: number;
   brandedUrl: string;
+  originalUrls: string[];
   shareUrl: string;
 }
 
 export interface SessionDetail extends SessionSummary {
-  originalUrls: string[];
   qrCodeUrl: string;
 }

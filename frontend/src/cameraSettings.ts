@@ -27,7 +27,8 @@ export function getCameraSettings(): CameraSettings {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_CAMERA_SETTINGS;
     return { ...DEFAULT_CAMERA_SETTINGS, ...(JSON.parse(raw) as Partial<CameraSettings>) };
-  } catch {
+  } catch (err) {
+    console.warn("Failed to parse stored camera settings", err);
     return DEFAULT_CAMERA_SETTINGS;
   }
 }

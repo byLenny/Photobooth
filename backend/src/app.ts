@@ -9,6 +9,7 @@ import { settingsRoutes } from "./routes/settings.js";
 import { adminAuthRoutes } from "./routes/admin.js";
 import { sessionRoutes } from "./routes/sessions.js";
 import { photoRoutes } from "./routes/photos.js";
+import { cameraRoutes } from "./routes/camera.js";
 
 const FRONTEND_DIST = path.resolve(process.cwd(), "public");
 
@@ -63,6 +64,7 @@ export async function buildApp() {
   await app.register(adminAuthRoutes);
   await app.register(sessionRoutes);
   await app.register(photoRoutes);
+  await app.register(cameraRoutes);
 
   return app;
 }

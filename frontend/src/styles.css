@@ -316,7 +316,8 @@ button {
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
   border: 4px solid rgba(255, 255, 255, 0.15);
 }
-.cam-wrap video {
+.cam-wrap video,
+.cam-wrap img.rtsp-preview {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -428,18 +429,24 @@ button {
   width: min(94vw, 1400px);
   overflow-x: auto;
 }
-.result-thumb {
+.result-thumb-wrap {
   flex: 1 1 0;
   min-width: 120px;
   aspect-ratio: 4 / 3;
   border-radius: 18px;
   border: 4px solid #fff;
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
-  object-fit: cover;
+  overflow: hidden;
   cursor: pointer;
+}
+.result-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
   transition: transform 0.12s ease;
 }
-.result-thumb:hover {
+.result-thumb-wrap:hover .result-thumb {
   transform: scale(1.03);
 }
 
