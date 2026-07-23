@@ -13,9 +13,10 @@ export function getSettings(): Promise<Settings> {
   return request<Settings>("/api/settings");
 }
 
-export function createSession(photos: Blob[]): Promise<SessionDetail> {
+export function createSession(photos: Blob[], email?: string): Promise<SessionDetail> {
   const form = new FormData();
   photos.forEach((blob, i) => form.append("photo", blob, `shot-${i + 1}.jpg`));
+  if (email) form.append("email", email);
   return request<SessionDetail>("/api/sessions", { method: "POST", body: form });
 }
 

@@ -16,6 +16,7 @@ const ALL_GALLERY_LIMIT = 100;
 const CONFETTI_DENSITY = 18;
 const DEFAULT_HEADLINE = "Smile, it's party time! 🎉";
 const DEFAULT_SUBHEAD = "Press Start to commemorate the occasion with a photo!";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -36,6 +37,7 @@ export default function KioskPage() {
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [cameraPrefs, setCameraPrefs] = useState<CameraSettings>(() => getCameraSettings());
   const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -150,6 +152,7 @@ export default function KioskPage() {
     setResult(null);
     setCountdownValue(null);
     setFullscreenUrl(null);
+    setEmail("");
     clearShotPreviews();
     refreshGallery();
   }, [stopStream, clearShotPreviews, refreshGallery]);
@@ -192,6 +195,8 @@ export default function KioskPage() {
 
   const beginCapture = useCallback(async () => {
     if (!settings) return;
+    const trimmedEmail = email.trim();
+    if (trimmedEmail && !EMAIL_RE.test(trimmedEmail)) return;
     cancelledRef.current = false;
     const total = settings.shotsPerSession;
     setShotProgress({ current: 0, total });
@@ -224,7 +229,7 @@ export default function KioskPage() {
     setStage("processing");
     stopStream();
     try {
-      const session = await createSession(shots);
+      const session = await createSession(shots, email.trim());
       setResult(session);
       setResultHeadline(RESULT_PHRASES[Math.floor(Math.random() * RESULT_PHRASES.length)]);
       setStage("result");
@@ -233,7 +238,7 @@ export default function KioskPage() {
       setErrorMsg("Something went wrong saving your photo. Please try again.");
       setStage("error");
     }
-  }, [settings, runCountdown, captureFrame, stopStream, clearShotPreviews]);
+  }, [settings, email, runCountdown, captureFrame, stopStream, clearShotPreviews]);
 
   useEffect(() => {
     if (stage !== "result") return;
@@ -400,9 +405,24 @@ export default function KioskPage() {
         <canvas ref={canvasRef} style={{ display: "none" }} />
 
         {stage === "setup" && (
-          <button className="btn btn-primary" onClick={beginCapture}>
-            Take Photo
-          </button>
+          <>
+            <input
+              className="email-input"
+              type="email"
+              inputMode="email"
+              placeholder="Email address (optional)"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              aria-label="Email address"
+            />
+            <button
+              className="btn btn-primary"
+              onClick={beginCapture}
+              disabled={email.trim() !== "" && !EMAIL_RE.test(email.trim())}
+            >
+              Take Photo
+            </button>
+          </>
         )}
         {stage === "countdown" && shotProgress.total > 1 && (
           <p className="shot-progress">
