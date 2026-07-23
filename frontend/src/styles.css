@@ -301,6 +301,10 @@ button {
   background: rgba(255, 255, 255, 0.08);
   color: var(--paper);
 }
+.cam-device-select option {
+  color: #1a1420;
+  background: #fff;
+}
 
 .cam-wrap {
   position: relative;
@@ -499,6 +503,13 @@ button {
   font-family: "Fredoka", sans-serif;
 }
 
+.admin-close {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+}
+
 .admin-nav {
   display: flex;
   gap: 1rem;
@@ -578,10 +589,18 @@ button {
   font-size: 16px;
   min-height: 56px;
 }
+.admin-field input[type="password"] {
+  font-size: 28px;
+  letter-spacing: 14px;
+}
 .admin-field input:focus,
 .admin-field select:focus {
   outline: 2px solid var(--pink, #ff3b8d);
   outline-offset: 1px;
+}
+.admin-field select option {
+  color: #1a1420;
+  background: #fff;
 }
 .admin-field input[type="checkbox"] {
   min-height: auto;
