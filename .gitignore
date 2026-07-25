@@ -5,8 +5,9 @@ backend/public/
 *.log
 .env
 .env.local
-data/
+/backend/data/
 *.db
 *.db-journal
 .DS_Store
 docker-compose.yml
+/certs/

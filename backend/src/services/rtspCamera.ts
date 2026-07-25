@@ -12,6 +12,13 @@ const JPEG_EOI = Buffer.from([0xff, 0xd9]);
 const IDLE_STOP_MS = 30_000;
 const SNAPSHOT_TIMEOUT_MS = 8_000;
 const RESTART_BACKOFF_MS = 2_000;
+const STDERR_TAIL_MAX_CHARS = 2_000;
+
+// The RTSP URL can carry plaintext credentials (rtsp://user:pass@host/...) —
+// never let those reach logs.
+function maskUrl(url: string): string {
+  return url.replace(/\/\/[^/@]+@/, "//***@");
+}
 
 export type CameraState = "idle" | "connecting" | "streaming" | "error";
 
@@ -35,6 +42,10 @@ class RtspCameraManager extends EventEmitter {
   private lastError: string | undefined;
   private idleTimer: NodeJS.Timeout | null = null;
   private pendingFrameWaiters: Array<(frame: Buffer) => void> = [];
+  // ffmpeg's own exit code is frequently useless on Windows (auth failures,
+  // codec errors, etc. all surface as a garbled unsigned wraparound), so we
+  // keep the tail of its stderr around to fold into error messages/logs.
+  private stderrTail = "";
 
   constructor(url: string) {
     super();
@@ -66,6 +77,7 @@ class RtspCameraManager extends EventEmitter {
     this.state = "connecting";
     this.lastError = undefined;
     this.buffer = Buffer.alloc(0);
+    this.stderrTail = "";
 
     const proc = spawn(FFMPEG_PATH, [
       "-rtsp_transport",
@@ -83,18 +95,28 @@ class RtspCameraManager extends EventEmitter {
     this.process = proc;
 
     proc.stdout.on("data", (chunk: Buffer) => this.onData(chunk));
+    proc.stderr.on("data", (chunk: Buffer) => {
+      this.stderrTail = (this.stderrTail + chunk.toString()).slice(-STDERR_TAIL_MAX_CHARS);
+    });
     proc.on("error", (err) => {
       if (this.process !== proc) return;
       this.state = "error";
       this.lastError = err.message;
       this.process = null;
+      console.error(`[rtsp-camera] failed to launch ffmpeg for ${maskUrl(this.url)}:`, err.message);
     });
     proc.on("exit", (code) => {
       if (this.process !== proc) return; // torn down intentionally via stop()
       const hadSubscribers = this.subscribers.size > 0;
       this.process = null;
       this.state = "error";
-      this.lastError = `ffmpeg exited with code ${code}`;
+      const detail = this.stderrTail.trim();
+      this.lastError = detail
+        ? `ffmpeg exited with code ${code}: ${detail.split("\n").pop()}`
+        : `ffmpeg exited with code ${code}`;
+      console.error(
+        `[rtsp-camera] ffmpeg exited (code ${code}) for ${maskUrl(this.url)}${detail ? `\n${detail}` : ""}`,
+      );
       if (hadSubscribers) {
         setTimeout(() => {
           if (this.subscribers.size > 0 && !this.process) this.ensureRunning();
