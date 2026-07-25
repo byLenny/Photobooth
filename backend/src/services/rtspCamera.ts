@@ -84,6 +84,13 @@ class RtspCameraManager extends EventEmitter {
       "tcp",
       "-i",
       this.url,
+      // This stream is only ever shown at .cam-wrap's on-screen size (well
+      // under 1280px wide), not saved — downscaling it cuts bandwidth ~4x
+      // for the continuous live preview, which chokes weaker/older devices
+      // at the camera's native resolution. captureFullFrame() below grabs
+      // an undownscaled frame separately for the actual saved photo.
+      "-vf",
+      "scale='min(1280,iw)':-2",
       "-f",
       "mjpeg",
       "-q:v",
@@ -189,6 +196,83 @@ class RtspCameraManager extends EventEmitter {
         resolve(frame);
       };
       this.pendingFrameWaiters.push(waiter);
+    });
+  }
+
+  /**
+   * Grabs a single frame at the camera's native resolution via its own
+   * short-lived ffmpeg process, independent of the shared downscaled
+   * preview stream — used for the actual saved photo, which shouldn't be
+   * capped at the preview's reduced size. Briefly opens a second RTSP
+   * session alongside the live preview's; fine for cameras that support
+   * more than one concurrent viewer (most do), but something to watch for
+   * on cameras with a session limit of exactly one.
+   */
+  async captureFullFrame(timeoutMs = SNAPSHOT_TIMEOUT_MS): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) => {
+      const proc = spawn(FFMPEG_PATH, [
+        "-rtsp_transport",
+        "tcp",
+        "-i",
+        this.url,
+        "-frames:v",
+        "1",
+        "-q:v",
+        "2",
+        "-f",
+        "mjpeg",
+        "pipe:1",
+      ]);
+
+      let stdout = Buffer.alloc(0);
+      let stderrTail = "";
+      let settled = false;
+
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        proc.kill("SIGKILL");
+        reject(new Error("Timed out capturing a full-resolution frame from the camera"));
+      }, timeoutMs);
+
+      proc.stdout.on("data", (chunk: Buffer) => {
+        stdout = Buffer.concat([stdout, chunk]);
+      });
+      proc.stderr.on("data", (chunk: Buffer) => {
+        stderrTail = (stderrTail + chunk.toString()).slice(-STDERR_TAIL_MAX_CHARS);
+      });
+      proc.on("error", (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        console.error(
+          `[rtsp-camera] failed to launch one-shot capture for ${maskUrl(this.url)}:`,
+          err.message,
+        );
+        reject(err);
+      });
+      proc.on("exit", (code) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        const start = stdout.indexOf(JPEG_SOI);
+        const end = start >= 0 ? stdout.indexOf(JPEG_EOI, start + 2) : -1;
+        if (start >= 0 && end >= 0) {
+          resolve(Buffer.from(stdout.subarray(start, end + 2)));
+          return;
+        }
+        const detail = stderrTail.trim();
+        console.error(
+          `[rtsp-camera] one-shot capture failed (code ${code}) for ${maskUrl(this.url)}${detail ? `\n${detail}` : ""}`,
+        );
+        reject(
+          new Error(
+            detail
+              ? `capture failed (code ${code}): ${detail.split("\n").pop()}`
+              : `capture failed (code ${code})`,
+          ),
+        );
+      });
     });
   }
 

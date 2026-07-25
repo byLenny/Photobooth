@@ -25,7 +25,9 @@ export async function cameraRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ error: "rtsp_not_configured" });
     }
     try {
-      const frame = await manager.getLatestFrame();
+      // Full-resolution grab, independent of the downscaled live preview —
+      // this is what gets saved as the actual photo.
+      const frame = await manager.captureFullFrame();
       reply.header("Content-Type", "image/jpeg");
       return reply.send(frame);
     } catch (err) {
